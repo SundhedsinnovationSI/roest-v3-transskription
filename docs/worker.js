@@ -256,7 +256,7 @@ async function findTalere(lyd, antal, seg, emb) {
     for (let f = 0; f < F; f++) { cnt[s + f] += l[f * 3] + l[f * 3 + 1] + l[f * 3 + 2]; w[s + f] += 1; }
   });
   const spf = Int32Array.from(cnt, (c, i) => Math.floor(c / (w[i] + 1e-12) + 0.5));
-  if (Math.max(...spf) === 0) return [];
+  if (!spf.some(v => v > 0)) return [];
   // (bid, taler) -> sample-intervaller uden overlap
   const par = [], intervaller = [];
   labels.forEach((l, ci) => {
@@ -288,7 +288,7 @@ async function findTalere(lyd, antal, seg, emb) {
   }
   status('talere', 'Finder talere: grupperer stemmer', 1, null);
   const cl = klynger(E, E.length, antal, 0.9);
-  const K = Math.max(...cl) + 1;
+  const K = cl.reduce((m, v) => Math.max(m, v), -1) + 1;
   const c2 = new Map(ok.map((i, k) => [par[i][0] * 3 + par[i][1], cl[k]]));
   let count = new Int32Array(nfr * K);
   labels.forEach((l, ci) => {
