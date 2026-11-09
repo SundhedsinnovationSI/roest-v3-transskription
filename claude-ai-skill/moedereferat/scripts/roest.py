@@ -24,7 +24,7 @@ ROEST = ("https://github.com/SundhedsinnovationSI/roest-v3-transskription"
          "/releases/download/v1/model.safetensors", 631024476)
 GH = "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
 SEG_URL = GH + "speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
-EMB_URL = GH + "speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+EMB_URL = GH + "speaker-recongition-models/3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx"
 SR = 16000
 # Ordforråd fra modellens vocab.json (indeks 0-41); 36 = ordskifte, 42-45 = specialtegn
 VOCAB = list("0123456789abcdefghijklmnopqrstuvwxyz") + ["|", "å", "æ", "é", "ø", "ü"]
@@ -209,7 +209,7 @@ def talere(lyd, antal):
         with tarfile.open(arkiv) as t:
             t.extractall(CACHE, filter="data")
         arkiv.unlink()
-    emb = hent(EMB_URL, CACHE / "3dspeaker.onnx")
+    emb = hent(EMB_URL, CACHE / "campplus.onnx")   # CAM++: hurtig stemmegenkendelse
     cfg = sherpa_onnx.OfflineSpeakerDiarizationConfig(
         segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
             pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(

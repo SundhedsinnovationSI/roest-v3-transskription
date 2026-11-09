@@ -33,8 +33,14 @@ Når brugeren uploader en lydfil, leverer du ét af to resultater:
    (scriptet gætter selv).
    Scriptet stopper selv efter ca. 7 minutter og gemmer sit fremskridt. Skriver det
    "IKKE FÆRDIG", så kør **præcis samme kommando** igen. Det fortsætter, hvor det slap.
-   Gentag, indtil teksten kommer. Ved lange optagelser må du skrive én kort linje om,
-   hvor langt den er (fx "40 af 120 bidder, ca. 25 min. tilbage").
+   Gentag, indtil teksten kommer.
+   Forventet tid i Claudes miljø (1 processorkerne): ca. 1 time for en times optagelse
+   (talerne findes på ca. 5-7 min., resten er transskription).
+   Når du når grænsen for, hvor meget du kan køre i ét svar, så skriv kun:
+   "Transskriberer: X af Y bidder er klar (ca. N min. tilbage). Skriv **fortsæt** for at køre videre."
+   Når brugeren skriver "fortsæt", så kør præcis samme kommando igen. Fremskridtet er
+   gemt, så den fortsætter, hvor den slap. Er fremskridtet væk (miljøet er nulstillet),
+   så starter den automatisk forfra.
 4. Læs resultatet direkte fra kommandoens output. Midlertidigt fremskridt slettes
    automatisk, når teksten er færdig.
 5. Vælg referat eller transskription (se øverst), og vis **kun** resultatet i chatten.
