@@ -1,6 +1,6 @@
 ---
 name: moedereferat
-description: Transskriberer danske lydoptagelser med talegenkendelsesmodellen Røst v3 og laver mødereferater med talere. Brug den, når brugeren uploader en lydfil (m4a, mp3, wav m.fl.), også uden yderligere besked, eller beder om transskription eller referat.
+description: Transskriberer danske lydoptagelser med talegenkendelsesmodellen Røst v3 og laver mødereferater med talere. Brug den, når brugeren uploader en lydfil (m4a, mp3, wav m.fl.), også uden yderligere besked, eller beder om transskription eller referat. Spørg altid først, hvor mange personer der taler.
 ---
 
 # Transskription og mødereferat med Røst v3
@@ -13,18 +13,31 @@ Når brugeren uploader en lydfil, leverer du ét af to resultater:
 
 ## Fremgangsmåde
 
-1. Installer værktøjer: `pip install -q numpy sherpa-onnx av`
-2. Kør scriptet `scripts/roest.py` fra denne skills mappe **i forgrunden** (ikke i baggrunden):
+1. **Spørg altid først**, hver gang der uploades en lydfil, og før lydfilen bearbejdes:
+   "Hvor mange personer taler i optagelsen?" Vis valgmulighederne (brug platformens
+   værktøj til valgmuligheder, hvis det findes, ellers en nummereret liste):
+   1. 1 person
+   2. 2 personer
+   3. 3 personer
+   4. 4 personer
+   5. 5 personer
+   6. 6 eller flere (skriv antallet)
+   7. Ved ikke
+   Vent på svaret, før du går videre. Har brugeren allerede skrevet et antal i beskeden,
+   så spørg alligevel, og nævn antallet: "Du skrev 3 personer. Er det korrekt?"
+   med de samme valgmuligheder.
+2. Installer værktøjer: `pip install -q numpy sherpa-onnx av`
+3. Kør scriptet `scripts/roest.py` fra denne skills mappe **i forgrunden** (ikke i baggrunden):
    `python3 <skillmappe>/scripts/roest.py "<lydfil>" --talere <antal>`
-   Brug det antal deltagere, brugeren har oplyst. Er det ikke oplyst, så brug `--talere 0`
-   (scriptet gætter selv). Spørg ikke først.
+   Brug det antal, brugeren har valgt. Ved "Ved ikke" bruges `--talere 0`
+   (scriptet gætter selv).
    Scriptet stopper selv efter ca. 7 minutter og gemmer sit fremskridt. Skriver det
    "IKKE FÆRDIG", så kør **præcis samme kommando** igen. Det fortsætter, hvor det slap.
    Gentag, indtil teksten kommer. Ved lange optagelser må du skrive én kort linje om,
    hvor langt den er (fx "40 af 120 bidder, ca. 25 min. tilbage").
-3. Læs resultatet direkte fra kommandoens output. Midlertidigt fremskridt slettes
+4. Læs resultatet direkte fra kommandoens output. Midlertidigt fremskridt slettes
    automatisk, når teksten er færdig.
-4. Vælg referat eller transskription (se øverst), og vis **kun** resultatet i chatten.
+5. Vælg referat eller transskription (se øverst), og vis **kun** resultatet i chatten.
 
 ## Sådan ser resultatet ud
 
@@ -41,10 +54,10 @@ Når brugeren uploader en lydfil, leverer du ét af to resultater:
   (fx når nogen bliver tiltalt ved navn, præsenterer sig eller nævner sin rolle).
   Har brugeren oplyst deltagernes navne, så brug dem, når det er tydeligt, hvem der er hvem.
 - Er titel, dato eller deltagere ukendte, så skriv [ikke oplyst].
-- Er antallet af deltagere ikke oplyst, så er antallet af talere gættet og ofte for højt
+- Har brugeren svaret "Ved ikke", så er antallet af talere gættet og ofte for højt
   (samme person kan blive delt i flere talere). Slå talere sammen, når teksten tydeligt
   viser, at det er samme person, og skriv under "Bør tjekkes":
-  "Antallet af talere er gættet. Oplys antal deltagere for et mere præcist resultat."
+  "Antallet af talere er gættet."
 
 ## Regler
 - Vis kun resultatet. Ingen indledning, ingen vurdering af optagelsen eller af skillen,
