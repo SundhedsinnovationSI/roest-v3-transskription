@@ -2,12 +2,18 @@
 Kræver: pip install numpy sherpa-onnx av
 Brug:  python roest.py <lydfil>                  -> ren transskription
        python roest.py <lydfil> --talere <antal> -> transskription med talere
-Modeller hentes første gang til /tmp/roest (kan ændres med ROEST_CACHE).
+       --maks-sek <n>  stop efter ca. n sekunder (standard 420) og gem fremskridt.
+Er arbejdet ikke færdigt, skrives "IKKE FÆRDIG" og exit-kode 3; kør så samme
+kommando igen, så fortsætter den, hvor den slap. Download fortsætter også.
+Modeller og midlertidigt fremskridt ligger i /tmp/roest (ROEST_CACHE). Fremskridtet
+slettes automatisk, når transskriptionen er færdig.
 Modellen er omfattet af licensen i github.com/SundhedsinnovationSI/roest-v3-transskription
 (OpenRAIL-M): maskingenereret tekst skal mærkes som maskingenereret."""
-import json, os, struct, subprocess, sys, tarfile, urllib.request
+import hashlib, json, os, struct, subprocess, sys, tarfile, time, urllib.request
 from pathlib import Path
-# Én tråd pr. proces; i stedet regnes flere lydbidder parallelt (hurtigere)
+
+START = time.time()
+# Én tråd pr. proces; ved flere kerner regnes flere lydbidder parallelt
 for _v in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ[_v] = "1"
 import multiprocessing as mp
@@ -15,31 +21,57 @@ import numpy as np
 
 CACHE = Path(os.environ.get("ROEST_CACHE", "/tmp/roest"))
 ROEST = ("https://github.com/SundhedsinnovationSI/roest-v3-transskription"
-         "/releases/download/v1/model.safetensors")
+         "/releases/download/v1/model.safetensors", 631024476)
 GH = "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
 SEG_URL = GH + "speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
 EMB_URL = GH + "speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
 SR = 16000
 # Ordforråd fra modellens vocab.json (indeks 0-41); 36 = ordskifte, 42-45 = specialtegn
 VOCAB = list("0123456789abcdefghijklmnopqrstuvwxyz") + ["|", "å", "æ", "é", "ø", "ü"]
-PAD = 45
+KERNER = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
 
-def hent(url, sti):
-    if not sti.exists():
-        print(f"Henter {sti.name} ...", file=sys.stderr, flush=True)
-        tmp = sti.with_suffix(".del")
-        urllib.request.urlretrieve(url, tmp)
-        tmp.rename(sti)
+
+def log(tekst):
+    print(tekst, file=sys.stderr, flush=True)
+
+
+def hent(url, sti, stoerrelse=None):
+    """Henter en fil; en afbrudt download fortsætter, hvor den slap."""
+    if sti.exists():
+        return sti
+    tmp = sti.with_name(sti.name + ".del")
+    for forsoeg in range(5):
+        har = tmp.stat().st_size if tmp.exists() else 0
+        req = urllib.request.Request(url, headers={"Range": f"bytes={har}-"} if har else {})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                if har and r.status != 206:      # serveren kan ikke fortsætte: start forfra
+                    har = 0
+                total = stoerrelse or (har + int(r.headers.get("Content-Length", 0)))
+                naeste = 0
+                with open(tmp, "ab" if har else "wb") as f:
+                    while blok := r.read(1 << 20):
+                        f.write(blok); har += len(blok)
+                        if total and har * 100 // total >= naeste:
+                            log(f"Henter {sti.name}: {har * 100 // total} %"); naeste += 20
+            break
+        except OSError as e:
+            log(f"Download afbrudt ({e}), prøver igen ...")
+            time.sleep(2 * (forsoeg + 1))
+    if stoerrelse and tmp.stat().st_size != stoerrelse:
+        sys.exit(f"FEJL: {sti.name} er ikke hentet helt. Kør kommandoen igen.")
+    tmp.rename(sti)
     return sti
 
-# ---------- indlæsning af lyd ----------
+
+# ---------- lyd ----------
 def laes_lyd(fil):
     try:
         raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", fil, "-ac", "1",
                               "-ar", str(SR), "-f", "f32le", "-"],
                              check=True, capture_output=True).stdout
         return np.frombuffer(raw, dtype=np.float32).copy()
-    except FileNotFoundError:  # intet ffmpeg: brug PyAV (pip install av)
+    except FileNotFoundError:  # intet ffmpeg: brug PyAV
         import av
         c = av.open(fil)
         rs = av.AudioResampler(format="flt", layout="mono", rate=SR)
@@ -47,20 +79,23 @@ def laes_lyd(fil):
         dele += [f.to_ndarray().ravel() for f in rs.resample(None)]
         return np.concatenate(dele).astype(np.float32)
 
+
 # ---------- model ----------
 def laes_vaegte(sti):
-    with open(sti, "rb") as f:
-        n = struct.unpack("<Q", f.read(8))[0]
-        hoved = json.loads(f.read(n))
-        data = f.read()
+    """Læser bf16-vægte tensor for tensor (lavt hukommelsesforbrug)."""
+    mm = np.memmap(sti, dtype=np.uint8, mode="r")
+    n = struct.unpack("<Q", bytes(mm[:8]))[0]
+    hoved = json.loads(bytes(mm[8:8 + n]))
     W = {}
     for k, v in hoved.items():
         if k == "__metadata__":
             continue
         a, b = v["data_offsets"]
-        bf16 = np.frombuffer(data[a:b], dtype=np.uint16)
+        bf16 = mm[8 + n + a:8 + n + b].view(np.uint16)
         W[k] = (bf16.astype(np.uint32) << 16).view(np.float32).reshape(v["shape"])
+    del mm
     return W
+
 
 def gelu(x):
     """Eksakt GELU, x * Phi(x). Phi via Abramowitz & Stegun 7.1.26 (fejl < 1.5e-7)."""
@@ -73,10 +108,12 @@ def gelu(x):
     p *= f32(0.5)                      # p = 1 - Phi(|x|)
     return x * np.where(x >= 0, 1 - p, p)
 
+
 def ln(x, w, b, eps=1e-5):
     m = x.mean(-1, keepdims=True)
     v = ((x - m) ** 2).mean(-1, keepdims=True)
     return (x - m) / np.sqrt(v + eps) * w + b
+
 
 class Roest:
     def __init__(self, sti):
@@ -124,44 +161,26 @@ class Roest:
         h = ln(h, W[p + "encoder.layer_norm.weight"], W[p + "encoder.layer_norm.bias"])
         return h @ W["lm_head.weight"].T + W["lm_head.bias"]
 
-    def transskriber(self, lyd, stykker=None, bid=10.0, overlap=2.0):
-        """Transskriberer lyd (eller en liste af (start, slut) i samples) og returnerer
-        én tekst pr. stykke. Lyden deles i bidder på 10 sek. med 2 sek. overlap,
-        som giver bedst resultat, og bidderne regnes parallelt."""
-        L, O = int(bid * SR), int(overlap * SR)
-        stykker = stykker or [(0, len(lyd))]
-        opg = []
-        for nr, (s0, s1) in enumerate(stykker):
-            N = s1 - s0
-            for start in range(0, N, L - 2 * O):
-                n_lyd = min(L, N - start)
-                venstre = 0 if start == 0 else O
-                sidst = start + L >= N
-                if n_lyd > venstre and n_lyd >= 400:
-                    opg.append((nr, s0 + start, n_lyd, venstre, 0 if sidst else O))
-                if sidst:
-                    break
-        global _MODEL, _LYD
-        _MODEL, _LYD = self, lyd
-        if len(opg) > 1:
-            with mp.get_context("fork").Pool(os.cpu_count() or 1) as pool:
-                dele = pool.map(_bid_ids, opg, chunksize=1)
-        else:
-            dele = [_bid_ids(o) for o in opg]
-        ids = [[] for _ in stykker]
-        for o, d in zip(opg, dele):
-            ids[o[0]].extend(d)
-        tekster = []
-        for liste in ids:
-            ud, forrige = [], None
-            for t in liste:
-                if t != forrige and t < 42:
-                    ud.append(" " if t == 36 else VOCAB[t])
-                forrige = t
-            tekster.append(" ".join("".join(ud).split()))
-        return tekster
+
+def bidder(stykker, bid=10.0, overlap=2.0):
+    """Deler hvert stykke i bidder på 10 sek. med 2 sek. overlap (giver bedst resultat)."""
+    L, O = int(bid * SR), int(overlap * SR)
+    opg = []
+    for nr, (s0, s1) in enumerate(stykker):
+        N = s1 - s0
+        for start in range(0, N, L - 2 * O):
+            n_lyd = min(L, N - start)
+            venstre = 0 if start == 0 else O
+            sidst = start + L >= N
+            if n_lyd > venstre and n_lyd >= 400:
+                opg.append((nr, s0 + start, n_lyd, venstre, 0 if sidst else O))
+            if sidst:
+                break
+    return opg
+
 
 _MODEL = _LYD = None
+
 
 def _bid_ids(o):
     _, start, n_lyd, venstre, hoejre = o
@@ -170,6 +189,16 @@ def _bid_ids(o):
     a = int(round(venstre / n_lyd * n))
     b = n - int(round(hoejre / n_lyd * n))
     return lg[a:b].argmax(-1).tolist()
+
+
+def tekst(ids):
+    ud, forrige = [], None
+    for t in ids:
+        if t != forrige and t < 42:
+            ud.append(" " if t == 36 else VOCAB[t])
+        forrige = t
+    return " ".join("".join(ud).split())
+
 
 # ---------- talere ----------
 def talere(lyd, antal):
@@ -184,9 +213,8 @@ def talere(lyd, antal):
     cfg = sherpa_onnx.OfflineSpeakerDiarizationConfig(
         segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
             pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
-                model=str(seg_dir / "model.onnx")), num_threads=os.cpu_count() or 1),
-        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-            model=str(emb), num_threads=os.cpu_count() or 1),
+                model=str(seg_dir / "model.onnx")), num_threads=KERNER),
+        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(emb), num_threads=KERNER),
         clustering=sherpa_onnx.FastClusteringConfig(
             num_clusters=antal if antal > 0 else -1, threshold=0.9),
         min_duration_on=0.3, min_duration_off=0.5)
@@ -196,32 +224,88 @@ def talere(lyd, antal):
             blokke[-1][1] = s.end
         else:
             blokke.append([s.start, s.end, s.speaker])
-    return blokke
+    return [b for b in blokke if (b[1] - b[0]) * SR >= SR // 2]
+
 
 def tid(sek):
     t, s = divmod(int(sek), 60)
     return f"{t // 60:02d}:{t % 60:02d}:{s:02d}"
 
+
 def main():
+    global _MODEL, _LYD
     args = sys.argv[1:]
     if not args:
         sys.exit(__doc__)
-    antal = None
+    antal, maks = None, 420.0
     if "--talere" in args:
         i = args.index("--talere"); antal = int(args[i + 1]); del args[i:i + 2]
+    if "--maks-sek" in args:
+        i = args.index("--maks-sek"); maks = float(args[i + 1]); del args[i:i + 2]
     CACHE.mkdir(parents=True, exist_ok=True)
-    lyd = laes_lyd(args[0])
-    model = Roest(hent(ROEST, CACHE / "model.safetensors"))
-    if antal is None:
-        print(model.transskriber(lyd)[0], flush=True)
-        return
-    blokke = [b for b in talere(lyd, antal) if (b[1] - b[0]) * SR >= SR // 2]
-    tekster = model.transskriber(lyd, [(int(a * SR), int(b * SR)) for a, b, _ in blokke])
-    numre = {}
-    for (start, _, taler), tekst in zip(blokke, tekster):
-        if tekst:
-            nr = numre.setdefault(taler, len(numre) + 1)
-            print(f"[{tid(start)}] Taler {nr}: {tekst}", flush=True)
+    lydfil = args[0]
+
+    # Fremskridt gemmes midlertidigt, så en afbrudt kørsel kan fortsætte
+    noegle = hashlib.sha1(f"{Path(lydfil).resolve()}|{os.path.getsize(lydfil)}|{antal}".encode()).hexdigest()[:12]
+    job_fil = CACHE / f"job-{noegle}.json"
+    job = json.loads(job_fil.read_text()) if job_fil.exists() else {"faerdige": {}}
+
+    def gem():
+        job_fil.write_text(json.dumps(job))
+
+    lyd = laes_lyd(lydfil)
+    log(f"Lyd: {len(lyd) / SR / 60:.1f} min. Processorkerner: {KERNER}.")
+    model_sti = hent(ROEST[0], CACHE / "model.safetensors", ROEST[1])
+
+    if antal is not None and "blokke" not in job:
+        log("Finder talere ...")
+        job["blokke"] = talere(lyd, antal)
+        gem()
+    blokke = job.get("blokke")
+    stykker = [(int(a * SR), int(b * SR)) for a, b, _ in blokke] if blokke else [(0, len(lyd))]
+    opg = bidder(stykker)
+    mangler = [i for i in range(len(opg)) if str(i) not in job["faerdige"]]
+    log(f"Transskriberer: {len(opg) - len(mangler)} af {len(opg)} bidder er klar.")
+
+    if mangler:
+        _MODEL, _LYD = Roest(model_sti), lyd
+        pr_bid = None
+        pool = mp.get_context("fork").Pool(KERNER) if KERNER > 1 and len(mangler) > 1 else None
+        try:
+            for start in range(0, len(mangler), KERNER):
+                if pr_bid and time.time() - START + pr_bid > maks:
+                    break
+                t0 = time.time()
+                del_ = mangler[start:start + KERNER]
+                res = pool.map(_bid_ids, [opg[i] for i in del_]) if pool else [_bid_ids(opg[i]) for i in del_]
+                for i, r in zip(del_, res):
+                    job["faerdige"][str(i)] = r
+                gem()
+                pr_bid = time.time() - t0
+        finally:
+            if pool:
+                pool.close()
+        klar = len(job["faerdige"])
+        if klar < len(opg):
+            rest = (len(opg) - klar) / KERNER * (pr_bid or 6) / 60
+            print(f"IKKE FÆRDIG: {klar} af {len(opg)} bidder er klar (ca. {rest:.0f} min. tilbage). "
+                  f"Kør samme kommando igen for at fortsætte.", flush=True)
+            sys.exit(3)
+
+    ids = [[] for _ in stykker]
+    for i, o in enumerate(opg):
+        ids[o[0]].extend(job["faerdige"][str(i)])
+    if blokke is None:
+        print(tekst(ids[0]), flush=True)
+    else:
+        numre = {}
+        for (start, _, taler), liste in zip(blokke, ids):
+            t = tekst(liste)
+            if t:
+                nr = numre.setdefault(taler, len(numre) + 1)
+                print(f"[{tid(start)}] Taler {nr}: {t}", flush=True)
+    job_fil.unlink(missing_ok=True)   # slet midlertidigt fremskridt
+
 
 if __name__ == "__main__":
     main()
