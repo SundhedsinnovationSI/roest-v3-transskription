@@ -6,9 +6,8 @@ CoRal-project/roest-v3-wav2vec2-315m fra CoRal-projektet
 
 Original: https://huggingface.co/CoRal-project/roest-v3-wav2vec2-315m
 
-Kopien bruges af Sundhedsinnovation, Region Sjælland, til transskription
-af mødeoptagelser. Selve modelfilen (model.safetensors) ligger under
-Releases.
+Kopien bruges til transskription af mødeoptagelser. Selve modelfilen
+(model.safetensors) ligger under Releases.
 
 ## Licens og brugsbegrænsninger
 

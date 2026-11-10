@@ -46,7 +46,7 @@ Drøftelser, Åbne spørgsmål, Næste møde og Bør tjekkes. Sidefoden mærker 
 - Læg telefonen eller mikrofonen midt på bordet.
 - Personer, der taler i munden på hinanden, giver flere fejl.
 - Tjek altid navne, beslutninger og opgaver i referatet, og se afsnittet «Bør tjekkes».
-- Brug de regler, der gælder i regionen, for optagelse af møder og behandling af personoplysninger.
+- Følg de regler, der gælder på din arbejdsplads, for optagelse af møder og behandling af personoplysninger.
 
 ## Hvis noget går galt
 
