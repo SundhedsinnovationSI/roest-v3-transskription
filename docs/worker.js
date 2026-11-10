@@ -23,7 +23,8 @@ const status = (fase, tekst, procent, eta) => post({ type: 'status', fase, tekst
 
 // ---------- modeller (gemmes i browserens cache efter første download) ----------
 async function hentModeller() {
-  const cache = await caches.open(VERSION);
+  let cache = null;   // privat vindue m.m.: hent uden at gemme
+  try { cache = await caches.open(VERSION); } catch { cache = null; }
   const total = Object.values(MODELLER).reduce((s, m) => s + m.stoerrelse, 0);
   let hentet = 0;
   const ud = {};
@@ -32,7 +33,7 @@ async function hentModeller() {
     let pos = 0;
     for (const del of m.dele) {
       const url = BASE + del;
-      let res = await cache.match(url);
+      const res = cache ? await cache.match(url) : null;
       if (!res) {
         const r = await fetch(url);
         if (!r.ok) throw new Error(`Kunne ikke hente ${del} (${r.status})`);
@@ -48,7 +49,7 @@ async function hentModeller() {
         const data = new Uint8Array(n);
         let o = 0;
         for (const s of stykker) { data.set(s, o); o += s.length; }
-        await cache.put(url, new Response(data));
+        if (cache) { try { await cache.put(url, new Response(data)); } catch { /* ingen plads: hentes igen næste gang */ } }
         buf.set(data, pos); pos += n;
       } else {
         const data = new Uint8Array(await res.arrayBuffer());
@@ -57,7 +58,7 @@ async function hentModeller() {
       }
     }
     if (pos !== m.stoerrelse) {
-      await caches.delete(VERSION);
+      try { await caches.delete(VERSION); } catch { /* ignorér */ }
       throw new Error(`Modelfilen ${navn} er ufuldstændig. Prøv igen.`);
     }
     ud[navn] = buf;

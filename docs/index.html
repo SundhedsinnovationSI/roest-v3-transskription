@@ -64,8 +64,9 @@
 
   <section class="kort">
     <h2><span class="trin">1</span>Vælg lydfil</h2>
-    <input type="file" id="fil" accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.webm">
-    <p class="lille">Fx m4a fra iPhone, mp3 eller wav.</p>
+    <input type="file" id="fil" accept=".m4a,.mp3,.wav,.aac,.mp4,.flac,.ogg,.oga,.opus,.webm">
+    <p class="lille">Filtyper: <b>m4a</b> (fx iPhone), <b>mp3</b>, <b>wav</b>, <b>aac</b>, <b>mp4</b> (også video), <b>flac</b>,
+      <b>ogg</b>, <b>opus</b> og <b>webm</b>. Ikke wma og aiff: gem dem som mp3 først.</p>
   </section>
 
   <section class="kort">
@@ -81,7 +82,7 @@
     </div>
     <div id="flere" class="skjult" style="margin-top:10px;max-width:220px">
       <label for="flereAntal">Antal personer</label>
-      <input type="number" id="flereAntal" min="6" max="30" value="6">
+      <input type="number" id="flereAntal" min="6" max="20" value="6">
     </div>
     <p class="lille">Det rigtige antal giver den mest præcise taleradskillelse.</p>
   </section>
@@ -91,7 +92,7 @@
     <div class="felter">
       <div><label for="titel">Mødets titel</label><input type="text" id="titel"></div>
       <div><label for="dato">Dato</label><input type="date" id="dato"></div>
-      <div class="bred"><label for="navne">Deltagere</label><input type="text" id="navne" placeholder="Fx Mette Hansen (projektleder), Jens Berg"></div>
+      <div class="bred" id="navne"><p class="lille">Vælg antal personer for at skrive deres navne.</p></div>
     </div>
   </section>
 
@@ -102,6 +103,7 @@
     <div id="fremdrift" class="skjult">
       <progress id="bar" max="1" value="0"></progress>
       <p id="status"></p>
+      <p class="lille" id="system"></p>
       <p class="lille">Hold fanen åben, mens der arbejdes. Du kan godt bruge andre programmer imens.</p>
     </div>
     <p id="fejl"></p>
@@ -112,14 +114,14 @@
     <p class="maerke">Maskingenereret med Røst v3. Ikke rettet af et menneske.</p>
     <textarea id="resultat" readonly></textarea>
     <div class="knapper">
-      <button id="kopierReferat">Kopiér til Claude (referat)</button>
-      <button id="kopierTekst" class="sekundaer">Kopiér transskription</button>
-      <button id="gem" class="sekundaer">Gem som tekstfil</button>
-      <a class="knap sekundaer" href="https://claude.ai/new" target="_blank" rel="noopener">Åbn Claude</a>
+      <button id="referat" disabled>Referat</button>
+      <button id="kopierTekst" class="sekundaer" disabled>Kopiér transskription</button>
+      <button id="gem" class="sekundaer" disabled>Gem som tekstfil</button>
     </div>
     <p id="kopieret" class="lille"></p>
-    <p class="lille"><b>Referat:</b> Klik på «Kopiér til Claude (referat)», åbn Claude, og indsæt med Ctrl+V.
-      Teksten indeholder både vejledning, skabelon og transskription.</p>
+    <textarea id="manuel" class="skjult" readonly aria-label="Tekst til referatsiden"></textarea>
+    <p class="lille"><b>Referat:</b> «Referat» åbner Røst Referat i Claude i en ny fane. Tryk <b>Ctrl+V</b> dér, så skriver
+      Claude referatet efter skabelonen, og du kan hente det som Word-fil. Det kræver, at du er logget ind på claude.ai.</p>
   </section>
 
   <footer>

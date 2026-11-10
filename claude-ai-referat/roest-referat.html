@@ -1,0 +1,342 @@
+<title>Røst Referat</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js"></script>
+<style>
+  /* Layout: én arbejdskolonne med nummererede trin; referatet vises som et dokumentark */
+  :root {
+    --bg: #eef2f6; --flade: #ffffff; --fg: #1b2430; --daempet: #5a6676; --kant: #d3dae3;
+    --accent: #0b5cad; --accent-fg: #ffffff; --accent-svag: #e3edf8; --ok: #1f7a3f; --fejl: #b3261e;
+    --font-tekst: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --font-dok: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --font-mono: ui-monospace, Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151c; --flade: #1a212b; --fg: #e5e9ef; --daempet: #a1abb9; --kant: #2d3746;
+      --accent: #6ba7ea; --accent-fg: #0b1220; --accent-svag: #1c2b3d; --ok: #6cc28a; --fejl: #f08a82; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151c; --flade: #1a212b; --fg: #e5e9ef; --daempet: #a1abb9; --kant: #2d3746;
+    --accent: #6ba7ea; --accent-fg: #0b1220; --accent-svag: #1c2b3d; --ok: #6cc28a; --fejl: #f08a82; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--font-tekst); }
+  .side { max-width: 860px; margin: 0 auto; padding-block: 28px 56px; display: grid; gap: 16px;
+          padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1 { font: 700 1.8rem/1.2 var(--font-dok); margin: 0; text-wrap: balance; }
+  .intro { margin: 6px 0 0; color: var(--daempet); max-width: 64ch; }
+  .trin { background: var(--flade); border: 1px solid var(--kant); border-radius: 10px; padding: 18px; display: grid; gap: 10px; min-width: 0; }
+  .trin h2 { font: 700 1.1rem/1.3 var(--font-tekst); margin: 0; display: flex; gap: 10px; align-items: center; }
+  .nr { flex: none; width: 1.7em; height: 1.7em; border-radius: 50%; background: var(--accent); color: var(--accent-fg);
+        display: grid; place-items: center; font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .lille { font-size: .9rem; color: var(--daempet); margin: 0; }
+  label { font-weight: 600; font-size: .92rem; }
+  input[type=text], input[type=date], input[type=number], textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--kant); border-radius: 8px; background: var(--flade); color: var(--fg); font: inherit; }
+  input[type=file] { font: inherit; max-width: 100%; }
+  .valg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .valg label { font-weight: 400; border: 1px solid var(--kant); border-radius: 8px; padding: 7px 12px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+  .valg label:has(input:checked) { border-color: var(--accent); background: var(--accent-svag); }
+  .gitter { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gitter > div { display: grid; gap: 4px; min-width: 0; }
+  .bred { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .gitter { grid-template-columns: 1fr; } }
+  .raekke { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button { appearance: none; border: 0; border-radius: 8px; padding: 10px 18px; font: 600 1rem var(--font-tekst);
+           background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+  button.sek { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  progress { width: 100%; height: 12px; accent-color: var(--accent); }
+  .status { margin: 0; font-weight: 600; }
+  .fejl { color: var(--fejl); font-weight: 600; margin: 0; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .maerke { display: inline-block; font: 700 .72rem var(--font-tekst); letter-spacing: .08em; text-transform: uppercase;
+            color: var(--daempet); border: 1px solid var(--kant); border-radius: 4px; padding: 2px 8px; justify-self: start; }
+  textarea#tekst { min-height: 140px; font: .88rem/1.5 var(--font-mono); resize: vertical; }
+  #felt { border: 2px dashed var(--kant); outline: none; }
+  #felt:focus-within, #felt:focus { border-color: var(--accent); background: var(--accent-svag); }
+  /* Dokumentarket */
+  .ark { background: var(--flade); border: 1px solid var(--kant); border-radius: 4px; box-shadow: 0 1px 3px rgb(0 0 0 / .08);
+         padding: clamp(20px, 6vw, 52px); min-width: 0; }
+  .ark.eksempel { opacity: .6; }
+  .ark h3 { font: 700 1.5rem/1.25 var(--font-dok); margin: 12px 0 10px; text-wrap: balance; }
+  .ark h4 { font: 700 1.1rem/1.3 var(--font-dok); margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--kant); }
+  .ark h5 { font: 600 1rem/1.3 var(--font-tekst); margin: 12px 0 4px; }
+  .ark p, .ark li { max-width: 68ch; }
+  .ark ul { margin: 4px 0; padding-left: 1.3em; }
+  .ark dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 0; }
+  .ark dt { font-weight: 600; } .ark dd { margin: 0; min-width: 0; }
+  .tabel { overflow-x: auto; }
+  .ark table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  .ark th, .ark td { border: 1px solid var(--kant); padding: 6px 9px; text-align: left; vertical-align: top; }
+  .ark th { background: var(--bg); font-weight: 600; }
+  .ark td.n { width: 2.5em; font-variant-numeric: tabular-nums; }
+  .tom { color: var(--daempet); font-style: italic; }
+  .fod { margin-top: 26px; padding-top: 10px; border-top: 1px solid var(--kant); font-size: .82rem; color: var(--daempet); font-style: italic; }
+  footer { font-size: .84rem; color: var(--daempet); }
+  footer a { color: var(--accent); }
+  @media (max-width: 480px) { .ark dl { grid-template-columns: 1fr; } }
+</style>
+
+<main class="side">
+  <header>
+    <h1>Røst Referat</h1>
+    <p class="intro">Laver mødereferatet ud fra transskriptionen fra Røst mødetransskription og leverer det som Word-fil.
+      Claude skriver referatet via din egen Claude-konto. Lyden er aldrig her, og intet gemmes på siden.</p>
+  </header>
+
+  <section class="trin" id="felt" tabindex="0" aria-label="Indsæt transskription">
+    <h2><span class="nr">1</span>Tryk Ctrl + V for at indsætte transskriptionen</h2>
+    <p class="lille">Har du klikket på «Referat» på transskriptionssiden, ligger teksten klar, og referatet starter, så snart
+      du har sat den ind. Du kan også sætte en transskription ind i feltet herunder og klikke på «Lav referat».</p>
+    <textarea id="tekst" placeholder="[00:00:05] Taler 1: …" aria-label="Transskription"></textarea>
+    <div class="raekke">
+      <button id="lav" disabled>Lav referat</button>
+      <button id="stop" class="sek" hidden>Stop</button>
+    </div>
+    <p class="lille" id="meta" hidden></p>
+  </section>
+
+  <section class="trin" id="referatTrin">
+    <h2><span class="nr">2</span>Referat</h2>
+    <p class="status" id="refStatus" hidden></p>
+    <p class="fejl" id="refFejl" hidden></p>
+    <div class="raekke" id="refHandlinger" hidden>
+      <button id="word">Hent som Word-fil</button>
+      <button id="kopierReferat" class="sek">Kopiér referat</button>
+      <span class="lille" id="refBesked"></span>
+    </div>
+    <article class="ark eksempel" id="ark" aria-live="polite"></article>
+  </section>
+
+  <footer>
+    <p>Referatet er maskingenereret med Claude ud fra en maskingenereret transskription (Røst v3, CoRal-projektet, tilpasset
+      OpenRAIL-M-licens). Det skal læses igennem og mærkes som maskingenereret, når det bruges videre. Word-fil: docx (MIT).
+      <a href="https://github.com/SundhedsinnovationSI/roest-v3-transskription">Kildekode og licenser</a>.</p>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const MAERKNING = 'Maskingenereret med Røst v3 og Claude. Skal gennemlæses, før det bruges.';
+  const samplePromise = window.claude ? window.claude.use('sample') : Promise.resolve(null);
+  const downloadsPromise = window.claude ? window.claude.use('downloads') : Promise.resolve(null);
+  let meta = null, refData = null, refStyring = null;
+
+  // ---------- indsat tekst ----------
+  function fortolk(raa) {
+    const tekst = raa.replace(/\r\n/g, '\n').trim();
+    const m = { titel: null, dato: null, antal: null, deltagere: [], transskription: tekst };
+    if (/^RØST-REFERAT/.test(tekst) && tekst.includes('\n---\n')) {
+      const i = tekst.indexOf('\n---\n');
+      const hoved = tekst.slice(0, i);
+      m.transskription = tekst.slice(i + 5).trim();
+      for (const linje of hoved.split('\n')) {
+        const k = linje.indexOf(':'), noegle = k > 0 ? linje.slice(0, k).trim() : '', vaerdi = k > 0 ? linje.slice(k + 1).trim() : '';
+        if (/^- /.test(linje)) { const n = linje.slice(2).trim(); if (n) m.deltagere.push(n); }
+        else if (noegle === 'Titel') m.titel = vaerdi || null;
+        else if (noegle === 'Dato') m.dato = vaerdi || null;
+        else if (noegle === 'Antal talere') m.antal = vaerdi || null;
+      }
+    }
+    return m;
+  }
+  function start() {
+    const raa = $('tekst').value;
+    if (!raa.trim() || refStyring) return;
+    meta = fortolk(raa);
+    if (!meta.transskription) { refFejl('Der er ingen transskription i teksten. Sæt hele teksten fra transskriptionssiden ind.'); return; }
+    const ord = meta.transskription.split(/\s+/).filter(Boolean).length;
+    $('meta').textContent = [meta.titel && 'Møde: ' + meta.titel, meta.dato && 'Dato: ' + meta.dato,
+      meta.antal && 'Talere: ' + meta.antal, ord.toLocaleString('da-DK') + ' ord'].filter(Boolean).join(' · ');
+    $('meta').hidden = false;
+    lavReferat();
+  }
+  $('tekst').addEventListener('input', () => { $('lav').disabled = !$('tekst').value.trim() || !!refStyring; });
+  document.addEventListener('paste', (e) => {
+    if (e.target === $('tekst')) { setTimeout(() => { $('lav').disabled = !$('tekst').value.trim(); start(); }, 0); return; }
+    const t = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (!t || !t.trim()) return;
+    e.preventDefault(); $('tekst').value = t; $('lav').disabled = false; start();
+  });
+  $('lav').addEventListener('click', start);
+  $('stop').addEventListener('click', () => refStyring && refStyring.abort());
+  const ren = (s) => String(s).replace(/[\\/:*?"<>|\n\r\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+
+  // ---------- referat med Claude ----------
+  function prompt() {
+        return `Du er referent ved et møde i det danske sundhedsvæsen. Lav et mødereferat ud fra transskriptionen nedenfor.
+
+Oplysninger fra brugeren:
+- Mødets titel: ${meta.titel || 'ikke oplyst'}
+- Dato: ${meta.dato || 'ikke oplyst'}
+- Antal personer, der taler: ${meta.antal || 'ikke oplyst'}
+- Deltagere: ${meta.deltagere.length ? meta.deltagere.join('; ') : 'ikke oplyst'}
+
+Regler:
+- Transskriptionen er maskingenereret med talegenkendelsesmodellen Røst v3. Den har ingen tegnsætning, kan indeholde hørefejl, og opdelingen på talere ("Taler 1", "Taler 2" …) kan tage fejl.
+- Find ud af, hvem "Taler 1", "Taler 2" osv. er, ud fra deltagerlisten og tydelige spor i teksten (fx når nogen tiltales ved navn, præsenterer sig eller nævner sin rolle). Brug kun et navn, når du er sikker. Ellers skriv "Taler 2" osv.
+- Er antallet af talere gættet, så slå talere sammen, når teksten tydeligt viser, at det er samme person, og nævn det under "boer_tjekkes".
+- Medtag kun det, der faktisk blev sagt. Opfind aldrig beslutninger, opgaver, ansvarlige, frister, navne eller datoer. Er noget ikke nævnt, så brug null eller en tom liste.
+- Uforståelige passager skrives som [uklart]. Steder, du er i tvivl om, samles i "boer_tjekkes" med tidspunkt i formatet [tt:mm:ss].
+- Skriv kort, konkret og professionelt på dansk. Hver beslutning og opgave skal kunne forstås uden resten af referatet.
+- Drøftelser grupperes efter emne (eller dagsordenspunkt, hvis det fremgår) og nummereres "1. …", "2. …".
+
+Svar KUN med ét JSON-objekt i dette format, uden anden tekst:
+{"titel": "brugerens titel, hvis oplyst, ellers en kort beskrivende titel", "dato": "dato, hvis oplyst eller nævnt, ellers null", "deltagere": ["navn (rolle)"], "beslutninger": ["..."], "opgaver": [{"opgave": "...", "ansvarlig": "navn eller null", "frist": "dato eller null"}], "droeftelser": [{"overskrift": "1. ...", "punkter": ["..."]}], "aabne_spoergsmaal": ["..."], "naeste_moede": "dato/tid eller null", "boer_tjekkes": ["..."]}
+
+Transskription:
+${meta.transskription}`;
+  }
+  const liste = (v) => Array.isArray(v) ? v.map(x => (typeof x === 'string' ? x : String(x ?? '')).trim()).filter(Boolean) : [];
+  const txt = (v) => (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null') ? v.trim() : null;
+  function normaliser(s) {
+    s = s || {};
+    return {
+      titel: txt(meta.titel) || txt(s.titel) || 'Mødereferat',
+      dato: txt(meta.dato) || txt(s.dato),
+      deltagere: meta.deltagere.length ? meta.deltagere : liste(s.deltagere),
+      beslutninger: liste(s.beslutninger),
+      opgaver: (Array.isArray(s.opgaver) ? s.opgaver : []).map(o => ({ opgave: txt(o && o.opgave) || '', ansvarlig: txt(o && o.ansvarlig), frist: txt(o && o.frist) })).filter(o => o.opgave),
+      droeftelser: (Array.isArray(s.droeftelser) ? s.droeftelser : []).map(d => ({ overskrift: txt(d && d.overskrift) || 'Drøftelse', punkter: liste(d && d.punkter) })),
+      aabne_spoergsmaal: liste(s.aabne_spoergsmaal), naeste_moede: txt(s.naeste_moede), boer_tjekkes: liste(s.boer_tjekkes),
+    };
+  }
+  async function lavReferat() {
+    if (!meta || !meta.transskription || refStyring) return;
+    $('refFejl').hidden = true; $('refHandlinger').hidden = true; $('refBesked').textContent = '';
+    const sample = await samplePromise;
+    if (!sample) { refFejl('Claude kan ikke kaldes fra denne visning. Åbn siden på claude.ai, logget ind med din Claude-konto.'); return; }
+    try { const lim = await sample.limits(); const bytes = new TextEncoder().encode(prompt()).length;
+      if (lim && lim.maxInputBytes && bytes > lim.maxInputBytes) { refFejl(`Transskriptionen er for lang til ét referat (${Math.round(bytes / 1000)} kB, grænsen er ${Math.round(lim.maxInputBytes / 1000)} kB). Del optagelsen op i kortere dele.`); return; }
+    } catch { /* grænsen kunne ikke læses */ }
+    refStyring = new AbortController(); $('lav').disabled = true; $('stop').hidden = false;
+    $('refStatus').textContent = 'Claude skriver referatet. Det tager typisk 1-3 minutter.'; $('refStatus').hidden = false;
+    try {
+      const svar = await sample.json(prompt(), { signal: refStyring.signal, modelTier: 'complex', cache: false });
+      refData = normaliser(svar); tegnReferat(refData, false);
+      const dl = await downloadsPromise; $('word').hidden = !dl;
+      $('refHandlinger').hidden = false; $('refStatus').hidden = true;
+      $('refBesked').innerHTML = '<span class="ok">Referatet er klar.</span> Læs det igennem, før det bruges.';
+    } catch (e) {
+      $('refStatus').hidden = true;
+      const k = e && e.code;
+      refFejl(k === 'not_granted' ? 'Siden har ikke fået lov til at bruge Claude. Tillad det i sidens tilladelser, og klik på «Referat» igen.'
+        : k === 'rate_limited' ? 'Din Claude-konto har nået sin grænse for brug lige nu. Vent lidt, og prøv igen.'
+        : k === 'cancelled' ? 'Stoppet.' : 'Referatet kunne ikke laves: ' + ((e && e.message) || 'ukendt fejl') + '. Prøv igen.');
+    } finally { refStyring = null; $('stop').hidden = true; $('lav').disabled = !$('tekst').value.trim(); }
+  }
+  function refFejl(t) { $('refFejl').textContent = t; $('refFejl').hidden = false; }
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ul = (a, tom) => a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="tom">${tom}</p>`;
+  function tegnReferat(d, eksempel) {
+    const ark = $('ark'); ark.classList.toggle('eksempel', eksempel);
+    ark.innerHTML = `
+      <span class="maerke">${eksempel ? 'Eksempel på et referat' : 'Referat · maskingenereret'}</span>
+      <h3>${esc(d.titel)}</h3>
+      <dl><dt>Dato</dt><dd>${esc(d.dato || 'Ikke oplyst')}</dd>
+        <dt>Deltagere</dt><dd>${esc(d.deltagere.length ? d.deltagere.join(', ') : 'Ikke oplyst')}</dd>
+        <dt>Referent</dt><dd>Maskingenereret med Røst v3 og Claude. Gennemlæst af: __________</dd></dl>
+      <h4>Beslutninger</h4>
+      ${d.beslutninger.length ? `<div class="tabel"><table><thead><tr><th>#</th><th>Beslutning</th></tr></thead><tbody>${d.beslutninger.map((b, i) => `<tr><td class="n">${i + 1}</td><td>${esc(b)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="tom">Ingen beslutninger.</p>'}
+      <h4>Opgaver</h4>
+      ${d.opgaver.length ? `<div class="tabel"><table><thead><tr><th>Opgave</th><th>Ansvarlig</th><th>Frist</th></tr></thead><tbody>${d.opgaver.map(o => `<tr><td>${esc(o.opgave)}</td><td>${esc(o.ansvarlig || 'Ikke aftalt')}</td><td>${esc(o.frist || 'Ikke aftalt')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="tom">Ingen opgaver.</p>'}
+      <h4>Drøftelser</h4>
+      ${d.droeftelser.length ? d.droeftelser.map(x => `<h5>${esc(x.overskrift)}</h5>${ul(x.punkter, 'Ingen noter.')}`).join('') : '<p class="tom">Ingen drøftelser.</p>'}
+      <h4>Åbne spørgsmål</h4>${ul(d.aabne_spoergsmaal, 'Ingen åbne spørgsmål.')}
+      <h4>Næste møde</h4><p>${esc(d.naeste_moede || 'Ikke aftalt')}</p>
+      <h4>Bør tjekkes</h4>${ul(d.boer_tjekkes, 'Intet markeret.')}
+      <p class="fod">${MAERKNING}</p>`;
+  }
+
+  // ---------- Word-fil (samme opbygning som referatskabelonen) ----------
+  function wordDokument(d) {
+    const BREDDE = 11906 - 2 * 1134;   // A4-bredde minus margener (twips)
+    const D = window.docx, F = 'Calibri', K = { style: D.BorderStyle.SINGLE, size: 4, color: 'A6B0BD' };
+    const kanter = { top: K, bottom: K, left: K, right: K };
+    const p = (t, o = {}) => new D.Paragraph({ children: [new D.TextRun({ text: t, font: F, ...o })], spacing: { after: 80 } });
+    const h = (t, niveau) => new D.Paragraph({ text: t, heading: niveau, spacing: { before: 240, after: 100 } });
+    const punkt = (t) => new D.Paragraph({ children: [new D.TextRun({ text: t, font: F })], bullet: { level: 0 }, spacing: { after: 40 } });
+    const tom = (t) => p(t, { italics: true, color: '5A6676' });
+    const celle = (t, b, hoved) => new D.TableCell({ borders: kanter, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      width: { size: Math.round(b / 100 * BREDDE), type: D.WidthType.DXA }, shading: hoved ? { fill: 'E9EEF4', type: D.ShadingType.CLEAR, color: 'auto' } : undefined,
+      children: [new D.Paragraph({ children: [new D.TextRun({ text: t, font: F, bold: !!hoved })] })] });
+    const tabel = (hoved, rk, b) => new D.Table({ width: { size: BREDDE, type: D.WidthType.DXA }, columnWidths: b.map(v => Math.round(v / 100 * BREDDE)),
+      rows: [new D.TableRow({ tableHeader: true, children: hoved.map((t, i) => celle(t, b[i], true)) }), ...rk.map(r => new D.TableRow({ children: r.map((t, i) => celle(t, b[i])) }))] });
+    const info = (n, v) => new D.Paragraph({ children: [new D.TextRun({ text: n + ': ', bold: true, font: F }), new D.TextRun({ text: v, font: F })], spacing: { after: 40 } });
+    const x = [
+      new D.Paragraph({ text: d.titel, heading: D.HeadingLevel.TITLE, spacing: { after: 160 } }),
+      info('Dato', d.dato || 'Ikke oplyst'), info('Deltagere', d.deltagere.length ? d.deltagere.join(', ') : 'Ikke oplyst'),
+      info('Referent', 'Maskingenereret med Røst v3 og Claude. Gennemlæst af: __________'),
+      h('Beslutninger', D.HeadingLevel.HEADING_1),
+      d.beslutninger.length ? tabel(['#', 'Beslutning'], d.beslutninger.map((b, i) => [String(i + 1), b]), [8, 92]) : tom('Ingen beslutninger.'),
+      h('Opgaver', D.HeadingLevel.HEADING_1),
+      d.opgaver.length ? tabel(['Opgave', 'Ansvarlig', 'Frist'], d.opgaver.map(o => [o.opgave, o.ansvarlig || 'Ikke aftalt', o.frist || 'Ikke aftalt']), [56, 24, 20]) : tom('Ingen opgaver.'),
+      h('Drøftelser', D.HeadingLevel.HEADING_1),
+    ];
+    if (d.droeftelser.length) for (const y of d.droeftelser) { x.push(h(y.overskrift, D.HeadingLevel.HEADING_2)); y.punkter.length ? y.punkter.forEach(t => x.push(punkt(t))) : x.push(tom('Ingen noter.')); }
+    else x.push(tom('Ingen drøftelser.'));
+    x.push(h('Åbne spørgsmål', D.HeadingLevel.HEADING_1)); d.aabne_spoergsmaal.length ? d.aabne_spoergsmaal.forEach(t => x.push(punkt(t))) : x.push(tom('Ingen åbne spørgsmål.'));
+    x.push(h('Næste møde', D.HeadingLevel.HEADING_1), p(d.naeste_moede || 'Ikke aftalt'));
+    x.push(h('Bør tjekkes', D.HeadingLevel.HEADING_1)); d.boer_tjekkes.length ? d.boer_tjekkes.forEach(t => x.push(punkt(t))) : x.push(tom('Intet markeret.'));
+    return new D.Document({ creator: 'Røst Mødereferat', title: d.titel, description: MAERKNING,
+      styles: { default: { document: { run: { font: F, size: 22 } } }, paragraphStyles: [
+        { id: 'Title', name: 'Title', basedOn: 'Normal', next: 'Normal', run: { font: F, size: 40, bold: true, color: '1B2430' } },
+        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', run: { font: F, size: 28, bold: true, color: '0B5CAD' } },
+        { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', run: { font: F, size: 24, bold: true, color: '1B2430' } }] },
+      sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } },
+        footers: { default: new D.Footer({ children: [new D.Paragraph({ children: [new D.TextRun({ text: MAERKNING, italics: true, size: 16, color: '5A6676', font: F })] })] }) },
+        children: x }] });
+  }
+  $('word').addEventListener('click', async () => {
+    if (!refData) return;
+    const dl = await downloadsPromise;
+    if (!dl) { $('refBesked').textContent = 'Word-filen kan ikke hentes i denne visning. Brug «Kopiér referat».'; return; }
+    if (!window.docx) { $('refBesked').textContent = 'Word-funktionen kunne ikke indlæses. Genindlæs siden, eller brug «Kopiér referat».'; return; }
+    try {
+      const blob = await window.docx.Packer.toBlob(wordDokument(refData));
+      await dl.save({ filename: `Referat - ${ren(refData.titel)}${refData.dato ? ' - ' + ren(refData.dato) : ''}.docx`, data: blob });
+      $('refBesked').innerHTML = '<span class="ok">Word-filen er hentet.</span>';
+    } catch (e) {
+      const k = e && e.code;
+      $('refBesked').textContent = k === 'declined' ? 'Hentningen blev afvist.' : k === 'rate_limited' ? 'Vent et øjeblik, og prøv igen.' : 'Word-filen kunne ikke hentes. Brug «Kopiér referat».';
+    }
+  });
+  function referatTekst(d) {
+    const l = [d.titel, '', `Dato: ${d.dato || 'Ikke oplyst'}`, `Deltagere: ${d.deltagere.join(', ') || 'Ikke oplyst'}`,
+      'Referent: Maskingenereret med Røst v3 og Claude. Gennemlæst af: __________', '', 'BESLUTNINGER'];
+    d.beslutninger.length ? d.beslutninger.forEach((b, i) => l.push(`${i + 1}. ${b}`)) : l.push('Ingen beslutninger.');
+    l.push('', 'OPGAVER'); d.opgaver.length ? d.opgaver.forEach(o => l.push(`- ${o.opgave} (ansvarlig: ${o.ansvarlig || 'ikke aftalt'}, frist: ${o.frist || 'ikke aftalt'})`)) : l.push('Ingen opgaver.');
+    l.push('', 'DRØFTELSER'); d.droeftelser.length ? d.droeftelser.forEach(y => { l.push(y.overskrift); y.punkter.forEach(t => l.push(`- ${t}`)); }) : l.push('Ingen drøftelser.');
+    l.push('', 'ÅBNE SPØRGSMÅL'); d.aabne_spoergsmaal.length ? d.aabne_spoergsmaal.forEach(t => l.push(`- ${t}`)) : l.push('Ingen åbne spørgsmål.');
+    l.push('', 'NÆSTE MØDE', d.naeste_moede || 'Ikke aftalt', '', 'BØR TJEKKES');
+    d.boer_tjekkes.length ? d.boer_tjekkes.forEach(t => l.push(`- ${t}`)) : l.push('Intet markeret.');
+    l.push('', MAERKNING); return l.join('\n');
+  }
+  $('kopierReferat').addEventListener('click', () => {
+    if (!refData) return;
+    const t = referatTekst(refData);
+    navigator.clipboard.writeText(t).then(() => { $('refBesked').textContent = 'Referatet er kopieret.'; }, () => {
+      const f = document.createElement('textarea'); f.value = t; f.setAttribute('aria-label', 'Referat som tekst');
+      f.style.minHeight = '200px'; $('refHandlinger').after(f); f.focus(); f.select();
+      $('refBesked').textContent = 'Teksten er markeret i feltet herunder. Tryk Ctrl+C for at kopiere.'; });
+  });
+
+  tegnReferat({ titel: 'Styregruppemøde om pilotforløb', dato: '10. november 2026',
+    deltagere: ['Mette Hansen (projektleder)', 'Jens Berg (overlæge)', 'Anna Lund (sygeplejerske)'],
+    beslutninger: ['Pilotforløbet starter på afsnit B2 mandag den 4. januar 2027.'],
+    opgaver: [{ opgave: 'Udsende information til personalet på B2', ansvarlig: 'Anna Lund', frist: '11. december 2026' }],
+    droeftelser: [{ overskrift: '1. Status', punkter: ['Udstyret er leveret og testet.'] }],
+    aabne_spoergsmaal: ['Skal natholdet med fra start?'], naeste_moede: '8. december 2026',
+    boer_tjekkes: ['[00:12:40] Uklart, om fristen var 11. eller 18. december.'] }, true);
+  $('felt').focus({ preventScroll: true });
+})();
+</script>
