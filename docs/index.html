@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Røst mødetransskription</title>
+<meta name="description" content="Transskriber mødeoptagelser på dansk direkte i browseren. Lyden forlader ikke din computer.">
+<!-- Giver browseren lov til at regne på flere processorkerner (genindlæser siden én gang) -->
+<script src="coi-serviceworker.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --kort: #ffffff; --tekst: #1d2433; --daempet: #5b6475; --kant: #d9dee7;
+    --accent: #0b5cad; --accent-tekst: #ffffff; --ok: #1f7a3f; --fejl: #b3261e; --felt: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161d; --kort: #1b212b; --tekst: #e6e9ef; --daempet: #a3abba; --kant: #2e3746;
+      --accent: #6aa8ec; --accent-tekst: #0b1220; --ok: #6cc28a; --fejl: #f08a82; --felt: #141920;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--tekst);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .under { color: var(--daempet); margin: 0 0 20px; }
+  .kort { background: var(--kort); border: 1px solid var(--kant); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .kort h2 { font-size: 1.1rem; margin: 0 0 10px; }
+  .trin { display: inline-block; min-width: 1.6em; height: 1.6em; line-height: 1.6em; text-align: center;
+          border-radius: 50%; background: var(--accent); color: var(--accent-tekst); font-size: .85rem; margin-right: 8px; }
+  label { display: block; }
+  .valg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .valg label { border: 1px solid var(--kant); border-radius: 8px; padding: 8px 12px; cursor: pointer; background: var(--felt); }
+  .valg input { margin-right: 6px; }
+  .valg label:has(input:checked) { border-color: var(--accent); outline: 2px solid var(--accent); }
+  input[type=text], input[type=date], input[type=number], textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--kant); border-radius: 8px;
+    background: var(--felt); color: var(--tekst); font: inherit; }
+  .felter { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .felter .bred { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .felter { grid-template-columns: 1fr; } }
+  .lille { font-size: .9rem; color: var(--daempet); }
+  button, .knap { appearance: none; border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-weight: 600;
+           background: var(--accent); color: var(--accent-tekst); cursor: pointer; text-decoration: none; display: inline-block; }
+  button.sekundaer, .knap.sekundaer { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .knapper { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  progress { width: 100%; height: 14px; }
+  #status { margin: 8px 0 0; }
+  #fejl { color: var(--fejl); font-weight: 600; }
+  textarea#resultat { min-height: 280px; font-family: ui-monospace, Consolas, monospace; font-size: .9rem; }
+  .maerke { font-size: .85rem; color: var(--daempet); font-style: italic; }
+  .skjult { display: none; }
+  .ok { color: var(--ok); font-weight: 600; }
+  footer { color: var(--daempet); font-size: .85rem; margin-top: 24px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Røst mødetransskription</h1>
+  <p class="under">Transskriberer danske mødeoptagelser og skelner talerne fra hinanden. Alt foregår i din browser,
+    og lyden forlader ikke din computer.</p>
+
+  <section class="kort">
+    <h2><span class="trin">1</span>Vælg lydfil</h2>
+    <input type="file" id="fil" accept=".m4a,.mp3,.wav,.aac,.mp4,.flac,.ogg,.oga,.opus,.webm">
+    <p class="lille">Filtyper: <b>m4a</b> (fx iPhone), <b>mp3</b>, <b>wav</b>, <b>aac</b>, <b>mp4</b> (også video), <b>flac</b>,
+      <b>ogg</b>, <b>opus</b> og <b>webm</b>. Ikke wma og aiff: gem dem som mp3 først.</p>
+  </section>
+
+  <section class="kort">
+    <h2><span class="trin">2</span>Hvor mange personer taler i optagelsen?</h2>
+    <div class="valg" id="antal">
+      <label><input type="radio" name="antal" value="1">1 person</label>
+      <label><input type="radio" name="antal" value="2">2 personer</label>
+      <label><input type="radio" name="antal" value="3">3 personer</label>
+      <label><input type="radio" name="antal" value="4">4 personer</label>
+      <label><input type="radio" name="antal" value="5">5 personer</label>
+      <label><input type="radio" name="antal" value="6">6 eller flere</label>
+      <label><input type="radio" name="antal" value="0">Ved ikke</label>
+    </div>
+    <div id="flere" class="skjult" style="margin-top:10px;max-width:220px">
+      <label for="flereAntal">Antal personer</label>
+      <input type="number" id="flereAntal" min="6" max="20" value="6">
+    </div>
+    <p class="lille">Det rigtige antal giver den mest præcise taleradskillelse.</p>
+  </section>
+
+  <section class="kort">
+    <h2><span class="trin">3</span>Om mødet <span class="lille">(valgfrit, bruges i referatet)</span></h2>
+    <div class="felter">
+      <div><label for="titel">Mødets titel</label><input type="text" id="titel"></div>
+      <div><label for="dato">Dato</label><input type="date" id="dato"></div>
+      <div class="bred" id="navne"><p class="lille">Vælg antal personer for at skrive deres navne.</p></div>
+    </div>
+  </section>
+
+  <section class="kort">
+    <h2><span class="trin">4</span>Transskriber</h2>
+    <button id="start" disabled>Start</button>
+    <p class="lille" id="hjaelp">Vælg en lydfil og antal personer.</p>
+    <div id="fremdrift" class="skjult">
+      <progress id="bar" max="1" value="0"></progress>
+      <p id="status"></p>
+      <p class="lille" id="system"></p>
+      <p class="lille">Hold fanen åben, mens der arbejdes. Du kan godt bruge andre programmer imens.</p>
+    </div>
+    <p id="fejl"></p>
+  </section>
+
+  <section class="kort skjult" id="resultatKort">
+    <h2><span class="trin">5</span>Resultat</h2>
+    <p class="maerke">Maskingenereret med Røst v3. Ikke rettet af et menneske.</p>
+    <textarea id="resultat" readonly></textarea>
+    <div class="knapper">
+      <button id="referat" disabled>Referat</button>
+      <button id="kopierTekst" class="sekundaer" disabled>Kopiér transskription</button>
+      <button id="gem" class="sekundaer" disabled>Gem som tekstfil</button>
+    </div>
+    <p id="kopieret" class="lille"></p>
+    <textarea id="manuel" class="skjult" readonly aria-label="Tekst til referatsiden"></textarea>
+    <p class="lille"><b>Referat:</b> «Referat» åbner Røst Referat i Claude i en ny fane. Tryk <b>Ctrl+V</b> dér, så skriver
+      Claude referatet efter skabelonen, og du kan hente det som Word-fil. Det kræver, at du er logget ind på claude.ai.</p>
+  </section>
+
+  <footer>
+    <p>Talegenkendelse: <a href="https://huggingface.co/CoRal-project/roest-v3-wav2vec2-315m">Røst v3</a> fra CoRal-projektet
+      (licens: <a href="https://github.com/SundhedsinnovationSI/roest-v3-transskription/blob/main/LICENSE">tilpasset OpenRAIL-M</a>;
+      maskingenereret indhold skal mærkes som maskingenereret).
+      Taleradskillelse: pyannote segmentation 3.0 (MIT) og CAM++ fra 3D-Speaker via sherpa-onnx (Apache 2.0).
+      Beregning: ONNX Runtime Web (MIT).</p>
+    <p>Første gang hentes modellerne (ca. 375 MB). Derefter ligger de i browseren.
+      <a href="#" id="ryd">Slet hentede modeller</a> ·
+      <a href="https://github.com/SundhedsinnovationSI/roest-v3-transskription/blob/main/docs/VEJLEDNING.md">Vejledning</a></p>
+  </footer>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
